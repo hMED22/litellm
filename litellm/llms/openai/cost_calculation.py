@@ -118,7 +118,7 @@ def cost_per_second(model: str, custom_llm_provider: str | None, duration: float
         )
         ## COST PER SECOND ##
         completion_cost = model_info["output_cost_per_second"] * duration
-    elif "input_cost_per_second" in model_info and model_info["input_cost_per_second"] is not None:
+    if "input_cost_per_second" in model_info and model_info["input_cost_per_second"] is not None:
         verbose_logger.debug(
             "For model=%s - input_cost_per_second: %s; duration: %s",
             model,
@@ -127,7 +127,6 @@ def cost_per_second(model: str, custom_llm_provider: str | None, duration: float
         )
         ## COST PER SECOND ##
         prompt_cost = model_info["input_cost_per_second"] * duration
-        completion_cost = 0.0
 
     return prompt_cost, completion_cost
 

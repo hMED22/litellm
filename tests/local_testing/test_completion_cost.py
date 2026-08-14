@@ -348,7 +348,7 @@ def test_whisper_openai():
     print(f"cost: {cost}")
     print(f"whisper dict: {litellm.model_cost['whisper-1']}")
     expected_cost = round(
-        litellm.model_cost["whisper-1"]["output_cost_per_second"]
+        litellm.model_cost["whisper-1"]["input_cost_per_second"]
         * _total_time_in_seconds,
         5,
     )
@@ -376,7 +376,7 @@ def test_whisper_azure():
     print(f"cost: {cost}")
     print(f"whisper dict: {litellm.model_cost['whisper-1']}")
     expected_cost = round(
-        litellm.model_cost["whisper-1"]["output_cost_per_second"]
+        litellm.model_cost["whisper-1"]["input_cost_per_second"]
         * _total_time_in_seconds,
         5,
     )
