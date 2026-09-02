@@ -323,6 +323,7 @@ LLM_CONFIG_NAMES: Final = (
     "InceptionChatConfig",
     "HyperbolicChatConfig",
     "VercelAIGatewayConfig",
+    "EdenAIChatConfig",
     "OVHCloudChatConfig",
     "OVHCloudEmbeddingConfig",
     "CometAPIEmbeddingConfig",
@@ -1212,6 +1213,7 @@ _LLM_CONFIGS_IMPORT_MAP: Final = {
         ".llms.vercel_ai_gateway.chat.transformation",
         "VercelAIGatewayConfig",
     ),
+    "EdenAIChatConfig": (".llms.edenai.chat.transformation", "EdenAIChatConfig"),
     "OVHCloudChatConfig": (".llms.ovhcloud.chat.transformation", "OVHCloudChatConfig"),
     "OVHCloudEmbeddingConfig": (
         ".llms.ovhcloud.embedding.transformation",

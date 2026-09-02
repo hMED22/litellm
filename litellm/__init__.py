@@ -674,6 +674,7 @@ recraft_models: Set = set()
 cometapi_models: Set = set()
 oci_models: Set = set()
 vercel_ai_gateway_models: Set = set()
+edenai_models: Set = set()
 volcengine_models: Set = set()
 wandb_models: Set = set(WANDB_MODELS)
 ovhcloud_models: Set = set()
@@ -747,6 +748,8 @@ def _populate_provider_model_sets(model_cost_map: Dict) -> None:
             openrouter_models.add(key)
         elif value.get("litellm_provider") == "vercel_ai_gateway":
             vercel_ai_gateway_models.add(key)
+        elif value.get("litellm_provider") == "edenai":
+            edenai_models.add(key)
         elif value.get("litellm_provider") == "datarobot":
             datarobot_models.add(key)
         elif value.get("litellm_provider") == "vertex_ai-text-models":
@@ -1093,6 +1096,7 @@ model_list = list(
     | oci_models
     | heroku_models
     | vercel_ai_gateway_models
+    | edenai_models
     | volcengine_models
     | wandb_models
     | ovhcloud_models
@@ -1121,6 +1125,7 @@ def _build_models_by_provider() -> dict:
         "baseten": baseten_models,
         "openrouter": openrouter_models,
         "vercel_ai_gateway": vercel_ai_gateway_models,
+        "edenai": edenai_models,
         "datarobot": datarobot_models,
         "vertex_ai": vertex_chat_models
         | vertex_text_models
@@ -2067,6 +2072,9 @@ if TYPE_CHECKING:
     )
     from .llms.vercel_ai_gateway.chat.transformation import (
         VercelAIGatewayConfig as VercelAIGatewayConfig,
+    )
+    from .llms.edenai.chat.transformation import (
+        EdenAIChatConfig as EdenAIChatConfig,
     )
     from .llms.ovhcloud.chat.transformation import (
         OVHCloudChatConfig as OVHCloudChatConfig,

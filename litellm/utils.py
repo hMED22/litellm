@@ -3145,6 +3145,9 @@ def register_model(
         elif value.get("litellm_provider") == "vercel_ai_gateway":
             if key not in litellm.vercel_ai_gateway_models:
                 litellm.vercel_ai_gateway_models.add(key)
+        elif value.get("litellm_provider") == "edenai":
+            if key not in litellm.edenai_models:
+                litellm.edenai_models.add(key)
         elif value.get("litellm_provider") == "vertex_ai-text-models":
             if key not in litellm.vertex_text_models:
                 litellm.vertex_text_models.add(key)
@@ -6390,6 +6393,11 @@ def validate_environment(
                 keys_in_environment = True
             else:
                 missing_keys.append("VERCEL_AI_GATEWAY_API_KEY")
+        elif custom_llm_provider == "edenai":
+            if "EDENAI_API_KEY" in os.environ:
+                keys_in_environment = True
+            else:
+                missing_keys.append("EDENAI_API_KEY")
         elif custom_llm_provider == "datarobot":
             if "DATAROBOT_API_TOKEN" in os.environ:
                 keys_in_environment = True
@@ -6640,6 +6648,12 @@ def validate_environment(
                 keys_in_environment = True
             else:
                 missing_keys.append("VERCEL_AI_GATEWAY_API_KEY")
+        ## edenai
+        elif model in litellm.edenai_models:
+            if "EDENAI_API_KEY" in os.environ:
+                keys_in_environment = True
+            else:
+                missing_keys.append("EDENAI_API_KEY")
         ## datarobot
         elif model in litellm.datarobot_models:
             if "DATAROBOT_API_TOKEN" in os.environ:
@@ -8107,6 +8121,7 @@ class ProviderConfigManager:
                 lambda: litellm.VercelAIGatewayConfig(),
                 False,
             ),
+            LlmProviders.EDENAI: (lambda: litellm.EdenAIChatConfig(), False),
             LlmProviders.COMETAPI: (lambda: litellm.CometAPIConfig(), False),
             LlmProviders.DATAROBOT: (lambda: litellm.DataRobotConfig(), False),
             LlmProviders.GEMINI: (lambda: litellm.GoogleAIStudioGeminiConfig(), False),
@@ -8788,7 +8803,7 @@ class ProviderConfigManager:
         return litellm.OpenAITextCompletionConfig()
 
     @staticmethod
-    def get_provider_model_info(
+    def get_provider_model_info(  # noqa: C901  # provider dispatch table, one branch per provider
         model: str | None,
         provider: LlmProviders,
     ) -> BaseLLMModelInfo | None:
@@ -8825,6 +8840,8 @@ class ProviderConfigManager:
             return litellm.LemonadeChatConfig()
         elif LlmProviders.CLARIFAI == provider:
             return litellm.ClarifaiConfig()
+        elif LlmProviders.EDENAI == provider:
+            return litellm.EdenAIChatConfig()
         elif LlmProviders.BEDROCK == provider:
             from litellm.llms.bedrock.common_utils import BedrockModelInfo
 

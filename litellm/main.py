@@ -3499,6 +3499,33 @@ def _complete_vercel_ai_gateway(
     return response
 
 
+def _complete_edenai(ctx: _CompletionDispatchContext) -> _CompletionDispatchResult:
+    api_base, api_key = litellm.EdenAIChatConfig()._get_openai_compatible_provider_info(
+        ctx.api_base, ctx.api_key or litellm.api_key
+    )
+    response: Final = base_llm_http_handler.completion(
+        model=ctx.model,
+        messages=ctx.messages,
+        api_base=api_base,
+        custom_llm_provider="edenai",
+        model_response=ctx.model_response,
+        encoding=_get_encoding(),
+        logging_obj=ctx.logging,
+        optional_params=ctx.optional_params,
+        timeout=ctx.timeout,
+        litellm_params=ctx.litellm_params,
+        shared_session=ctx.shared_session,
+        acompletion=ctx.acompletion,
+        stream=ctx.stream,
+        api_key=api_key,
+        headers=ctx.headers or litellm.headers,
+        client=_dispatch_client_http(ctx),
+        provider_config=ctx.provider_config,
+    )
+    ctx.logging.post_call(input=ctx.messages, api_key=api_key, original_response=response)
+    return response
+
+
 def _complete_vertex_ai_beta(
     ctx: _CompletionDispatchContext,
 ) -> _CompletionDispatchResult:
@@ -5691,6 +5718,8 @@ def completion(
             response = _complete_minimax(_dispatch_ctx)
         elif custom_llm_provider == "hosted_vllm":
             response = _complete_hosted_vllm(_dispatch_ctx)
+        elif custom_llm_provider == "edenai":
+            response = _complete_edenai(_dispatch_ctx)  # rebind-ok: dispatch chain binds response per branch
         elif (
             # A known OpenAI model name only decides the route when nothing else
             # resolved a provider. get_llm_provider() already maps these names to
