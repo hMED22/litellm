@@ -80,13 +80,6 @@ def _request_body(respx_mock) -> dict:
     return json.loads(respx_mock.calls.last.request.content)
 
 
-@pytest.fixture
-def eden_key(monkeypatch) -> str:
-    monkeypatch.delenv("EDENAI_API_BASE", raising=False)
-    monkeypatch.setenv("EDENAI_API_KEY", "eden-test-key")
-    return "eden-test-key"
-
-
 class TestProviderResolution:
     @pytest.mark.parametrize(
         "requested, sent_to_eden",

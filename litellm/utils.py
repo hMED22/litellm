@@ -8537,6 +8537,8 @@ class ProviderConfigManager:
                 )
 
                 return GithubCopilotAnthropicMessagesConfig()
+        elif litellm.LlmProviders.EDENAI == provider:
+            return litellm.EdenAIAnthropicMessagesConfig()
 
         from litellm.llms.openai_like.json_loader import JSONProviderRegistry
 
@@ -8731,6 +8733,8 @@ class ProviderConfigManager:
             return litellm.OpenRouterResponsesAPIConfig()
         elif litellm.LlmProviders.HOSTED_VLLM == provider:
             return litellm.HostedVLLMResponsesAPIConfig()
+        elif litellm.LlmProviders.EDENAI == provider:
+            return litellm.EdenAIResponsesAPIConfig()
         elif litellm.LlmProviders.BEDROCK_MANTLE == provider:
             # Both decisions are data-driven from the model's price-map entry, with
             # no model-name logic. Capability (can it serve Responses?) comes from

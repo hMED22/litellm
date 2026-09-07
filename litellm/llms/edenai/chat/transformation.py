@@ -13,29 +13,23 @@ from types import MappingProxyType
 from typing import TYPE_CHECKING, Final
 
 import httpx
-from pydantic import BaseModel, TypeAdapter, ValidationError
+from pydantic import BaseModel, TypeAdapter
 
 import litellm
+from litellm.litellm_core_utils.core_helpers import set_response_cost_in_hidden_params
 from litellm.llms.base_llm.chat.transformation import BaseLLMException
 from litellm.llms.openai.chat.gpt_transformation import OpenAIChatCompletionStreamingHandler, OpenAIGPTConfig
-from litellm.secret_managers.main import get_secret_str
 from litellm.types.llms.openai import AllMessageValues
 from litellm.types.utils import ModelResponse, ModelResponseStream, Usage
 
-from ..common_utils import EdenAIException
+from ..common_utils import EdenAIException, reported_cost, resolve_api_base, resolve_api_key
 
 if TYPE_CHECKING:
     import tiktoken
 
     from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
 
-EDENAI_API_BASE: Final = "https://api.edenai.run/v3"
-_RESPONSE_COST_HEADER: Final = "llm_provider-x-litellm-response-cost"
 _OPTIONAL_MAPPING: Final[TypeAdapter[Mapping[str, object] | None]] = TypeAdapter(Mapping[str, object] | None)
-
-
-class _EdenAIExtras(BaseModel):
-    cost: float | None = None
 
 
 class _EdenAIModel(BaseModel):
@@ -46,18 +40,6 @@ class _EdenAIModelCatalog(BaseModel):
     data: tuple[_EdenAIModel, ...]
 
 
-def _reported_cost(payload: object) -> float | None:
-    try:
-        extras: Final = (
-            _EdenAIExtras.model_validate_json(payload)
-            if isinstance(payload, bytes)
-            else _EdenAIExtras.model_validate(payload)
-        )
-    except ValidationError:
-        return None
-    return extras.cost
-
-
 def _stream_options_with_usage(request: Mapping[str, object]) -> Mapping[str, object]:
     current: Final = _OPTIONAL_MAPPING.validate_python(request.get("stream_options")) or MappingProxyType({})
     return MappingProxyType({**current, "include_usage": True})
@@ -66,7 +48,7 @@ def _stream_options_with_usage(request: Mapping[str, object]) -> Mapping[str, ob
 class EdenAIChatCompletionStreamingHandler(OpenAIChatCompletionStreamingHandler):
     def chunk_parser(self, chunk: dict[str, object]) -> ModelResponseStream:  # mutable-ok: inherited contract
         parsed: Final = super().chunk_parser(chunk)
-        cost: Final = _reported_cost(chunk)
+        cost: Final = reported_cost(chunk)
         usage: Final[object] = getattr(parsed, "usage", None)
         if cost is not None and isinstance(usage, Usage):
             usage.cost = cost
@@ -82,10 +64,7 @@ class EdenAIChatConfig(OpenAIGPTConfig):
         return [*super().get_supported_openai_params(model), "reasoning_effort"]  # mutable-ok: inherited contract
 
     def _get_openai_compatible_provider_info(self, api_base: str | None, api_key: str | None) -> tuple[str, str | None]:
-        return (
-            api_base or get_secret_str("EDENAI_API_BASE") or EDENAI_API_BASE,
-            api_key or get_secret_str("EDENAI_API_KEY"),
-        )
+        return resolve_api_base(api_base), resolve_api_key(api_key)
 
     def transform_request(
         self,
@@ -129,15 +108,7 @@ class EdenAIChatConfig(OpenAIGPTConfig):
             api_key=api_key,
             json_mode=json_mode,
         )
-        cost: Final = _reported_cost(raw_response.content)
-        if cost is None:
-            return response
-        hidden_params: Final[dict[str, object]] = response._hidden_params  # mutable-ok: plain dict by contract
-        headers: Final = _OPTIONAL_MAPPING.validate_python(hidden_params.get("additional_headers"))
-        hidden_params["additional_headers"] = {  # mutable-ok: hidden params are a plain dict by contract
-            **(headers or MappingProxyType({})),
-            _RESPONSE_COST_HEADER: cost,
-        }
+        set_response_cost_in_hidden_params(response._hidden_params, reported_cost(raw_response.content))
         return response
 
     def get_error_class(

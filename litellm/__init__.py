@@ -2076,6 +2076,12 @@ if TYPE_CHECKING:
     from .llms.edenai.chat.transformation import (
         EdenAIChatConfig as EdenAIChatConfig,
     )
+    from .llms.edenai.responses.transformation import (
+        EdenAIResponsesAPIConfig as EdenAIResponsesAPIConfig,
+    )
+    from .llms.edenai.messages.transformation import (
+        EdenAIAnthropicMessagesConfig as EdenAIAnthropicMessagesConfig,
+    )
     from .llms.ovhcloud.chat.transformation import (
         OVHCloudChatConfig as OVHCloudChatConfig,
     )

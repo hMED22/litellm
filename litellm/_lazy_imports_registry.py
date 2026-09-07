@@ -324,6 +324,8 @@ LLM_CONFIG_NAMES: Final = (
     "HyperbolicChatConfig",
     "VercelAIGatewayConfig",
     "EdenAIChatConfig",
+    "EdenAIResponsesAPIConfig",
+    "EdenAIAnthropicMessagesConfig",
     "OVHCloudChatConfig",
     "OVHCloudEmbeddingConfig",
     "CometAPIEmbeddingConfig",
@@ -1214,6 +1216,8 @@ _LLM_CONFIGS_IMPORT_MAP: Final = {
         "VercelAIGatewayConfig",
     ),
     "EdenAIChatConfig": (".llms.edenai.chat.transformation", "EdenAIChatConfig"),
+    "EdenAIResponsesAPIConfig": (".llms.edenai.responses.transformation", "EdenAIResponsesAPIConfig"),
+    "EdenAIAnthropicMessagesConfig": (".llms.edenai.messages.transformation", "EdenAIAnthropicMessagesConfig"),
     "OVHCloudChatConfig": (".llms.ovhcloud.chat.transformation", "OVHCloudChatConfig"),
     "OVHCloudEmbeddingConfig": (
         ".llms.ovhcloud.embedding.transformation",

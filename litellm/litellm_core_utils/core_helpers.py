@@ -2,6 +2,7 @@
 ## Helper utilities
 import copy
 from collections.abc import Iterable, Mapping
+from types import MappingProxyType
 from typing import TYPE_CHECKING, Any, Final, Literal
 
 import httpx
@@ -642,3 +643,22 @@ def redact_nested_match_and_regex_keys(
     except Exception:
         return payload
     return redacted
+
+
+RESPONSE_COST_HEADER: Final = "llm_provider-x-litellm-response-cost"
+_NO_HEADERS: Final[Mapping[str, object]] = MappingProxyType({})
+
+
+def set_response_cost_in_hidden_params(
+    hidden_params: dict[str, object],  # mutable-ok: writes the response's hidden params in place by contract
+    cost: float | None,
+) -> None:
+    """Record a provider-reported cost where the cost calculator looks before the price map."""
+    if cost is None:
+        return
+    additional_headers: Final[object] = hidden_params.get("additional_headers")
+    merged: Final[dict[str, object]] = {  # mutable-ok: assigned into the plain-dict hidden params
+        **(additional_headers if isinstance(additional_headers, Mapping) else _NO_HEADERS),
+        RESPONSE_COST_HEADER: cost,
+    }
+    hidden_params["additional_headers"] = merged  # rebind-ok: the caller's record is the point
