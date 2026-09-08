@@ -2082,6 +2082,18 @@ if TYPE_CHECKING:
     from .llms.edenai.messages.transformation import (
         EdenAIAnthropicMessagesConfig as EdenAIAnthropicMessagesConfig,
     )
+    from .llms.edenai.embedding.transformation import (
+        EdenAIEmbeddingConfig as EdenAIEmbeddingConfig,
+    )
+    from .llms.edenai.audio_transcription.transformation import (
+        EdenAIAudioTranscriptionConfig as EdenAIAudioTranscriptionConfig,
+    )
+    from .llms.edenai.text_to_speech.transformation import (
+        EdenAITextToSpeechConfig as EdenAITextToSpeechConfig,
+    )
+    from .llms.edenai.image_generation.transformation import (
+        EdenAIImageGenerationConfig as EdenAIImageGenerationConfig,
+    )
     from .llms.ovhcloud.chat.transformation import (
         OVHCloudChatConfig as OVHCloudChatConfig,
     )

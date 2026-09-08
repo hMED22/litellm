@@ -6389,6 +6389,22 @@ def embedding(
                 litellm_params=litellm_params_dict,
                 headers=headers or {},
             )
+        elif custom_llm_provider == "edenai":
+            response = base_llm_http_handler.embedding(
+                model=model,
+                input=input,
+                custom_llm_provider=custom_llm_provider,
+                api_base=api_base,
+                api_key=api_key,
+                logging_obj=logging,
+                timeout=timeout,
+                model_response=EmbeddingResponse(),
+                optional_params=optional_params,
+                client=client,
+                aembedding=aembedding,
+                litellm_params=litellm_params_dict,
+                headers=headers,
+            )
         elif (
             custom_llm_provider == "openai_like"
             or custom_llm_provider == "llamafile"
@@ -7827,6 +7843,25 @@ def transcription(
             max_retries=max_retries,
             litellm_params=litellm_params_dict,
         )
+    elif custom_llm_provider == "edenai":
+        response = base_llm_http_handler.audio_transcriptions(
+            model=model,
+            audio_file=file,
+            optional_params=optional_params,
+            litellm_params=litellm_params_dict,
+            model_response=model_response,
+            atranscription=atranscription,
+            client=client if isinstance(client, (HTTPHandler, AsyncHTTPHandler)) else None,
+            timeout=timeout,
+            max_retries=max_retries,
+            logging_obj=litellm_logging_obj,
+            api_base=api_base,
+            api_key=api_key,
+            custom_llm_provider=custom_llm_provider,
+            headers=extra_headers,
+            provider_config=provider_config,
+            shared_session=shared_session,
+        )
     elif custom_llm_provider == "openai" or (custom_llm_provider in litellm.openai_compatible_providers):
         api_base = (
             api_base
@@ -8086,7 +8121,23 @@ def speech(
         custom_llm_provider=custom_llm_provider,
     )
     response: HttpxBinaryResponseContent | Coroutine[object, object, HttpxBinaryResponseContent] | None = None
-    if custom_llm_provider == "openai" or custom_llm_provider in litellm.openai_compatible_providers:
+    if custom_llm_provider == "edenai":
+        litellm_params_dict["api_base"] = api_base
+        response = base_llm_http_handler.text_to_speech_handler(
+            model=model,
+            input=input,
+            voice=voice if isinstance(voice, str) else None,
+            text_to_speech_provider_config=text_to_speech_provider_config or litellm.EdenAITextToSpeechConfig(),
+            text_to_speech_optional_params=optional_params,
+            custom_llm_provider=custom_llm_provider,
+            litellm_params=litellm_params_dict,
+            logging_obj=logging_obj,
+            timeout=timeout,
+            extra_headers=extra_headers,
+            client=client,
+            _is_async=aspeech or False,
+        )
+    elif custom_llm_provider == "openai" or custom_llm_provider in litellm.openai_compatible_providers:
         if voice is None or not (isinstance(voice, str)):
             raise litellm.BadRequestError(
                 message="'voice' is required to be passed as a string for OpenAI TTS",

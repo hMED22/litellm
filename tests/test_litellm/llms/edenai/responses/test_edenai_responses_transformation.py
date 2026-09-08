@@ -152,10 +152,7 @@ class TestAuthentication:
 
         assert headers["Authorization"] == "Bearer explicit-key"
 
-    def test_missing_key_is_an_authentication_error(self, monkeypatch):
-        monkeypatch.delenv("EDENAI_API_KEY", raising=False)
-        monkeypatch.setattr(litellm, "api_key", None)
-
+    def test_missing_key_is_an_authentication_error(self, no_eden_key):
         with pytest.raises(litellm.AuthenticationError, match="EDENAI_API_KEY"):
             EdenAIResponsesAPIConfig().validate_environment(headers={}, model=SELLER_MODEL, litellm_params=None)
 

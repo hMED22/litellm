@@ -384,9 +384,17 @@ class TestDashboardRegistration:
         ],
         ids=["root", "backup"],
     )
-    def test_endpoint_matrix_documents_chat_support(self, matrix_path):
+    def test_endpoint_matrix_documents_every_served_surface(self, matrix_path):
         entry = json.loads(matrix_path.read_text())["providers"]["edenai"]
 
         assert entry["url"] == "https://docs.litellm.ai/docs/providers/edenai"
-        assert entry["endpoints"]["chat_completions"] is True
-        assert entry["endpoints"]["embeddings"] is False
+        served = {name for name, flag in entry["endpoints"].items() if flag}
+        assert served == {
+            "chat_completions",
+            "messages",
+            "responses",
+            "embeddings",
+            "image_generations",
+            "audio_transcriptions",
+            "audio_speech",
+        }

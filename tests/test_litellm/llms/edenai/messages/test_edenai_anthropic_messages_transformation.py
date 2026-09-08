@@ -88,29 +88,6 @@ def _logging_obj() -> Logging:
     )
 
 
-class _SpendCapture(CustomLogger):
-    def __init__(self, call_id: str):
-        super().__init__()
-        self.call_id = call_id
-        self.costs: list[object] = []
-
-    async def async_log_success_event(self, kwargs, response_obj, start_time, end_time):
-        if kwargs.get("litellm_call_id") == self.call_id:
-            self.costs.append((kwargs.get("standard_logging_object") or {}).get("response_cost"))
-
-
-async def _flush_spend_logging() -> None:
-    await asyncio.sleep(0)
-    await asyncio.wait_for(GLOBAL_LOGGING_WORKER.flush(), timeout=10.0)
-
-
-@pytest.fixture
-def spend_capture(monkeypatch) -> _SpendCapture:
-    capture = _SpendCapture(call_id=f"eden-messages-{uuid.uuid4()}")
-    monkeypatch.setattr(litellm, "callbacks", [capture])
-    return capture
-
-
 class TestRegistration:
     @pytest.mark.parametrize("model", [SELLER_MODEL, "anthropic/claude-sonnet-latest"])
     def test_eden_serves_anthropic_messages_natively_for_every_catalog_model(self, model):
@@ -170,10 +147,7 @@ class TestAuthentication:
         assert headers["Authorization"] == "Bearer caller-token"
         assert "authorization" not in headers
 
-    def test_missing_key_is_an_authentication_error(self, monkeypatch):
-        monkeypatch.delenv("EDENAI_API_KEY", raising=False)
-        monkeypatch.setattr(litellm, "api_key", None)
-
+    def test_missing_key_is_an_authentication_error(self, no_eden_key):
         with pytest.raises(litellm.AuthenticationError, match="EDENAI_API_KEY"):
             self._headers({})
 
@@ -242,12 +216,10 @@ class TestMessages:
         self, eden_key, httpx_transport, respx_mock, spend_capture
     ):
         respx_mock.post(EDEN_MESSAGES_URL).mock(return_value=httpx.Response(200, json=_eden_message()))
-        GLOBAL_LOGGING_WORKER.start()  # rebinds the worker's queue to this test's event loop
-
         await litellm.anthropic.messages.acreate(
             model=MODEL, max_tokens=16, messages=MESSAGES, litellm_call_id=spend_capture.call_id
         )
-        await _flush_spend_logging()
+        await spend_capture.settle()
 
         assert spend_capture.costs == [EDEN_REPORTED_COST]
 

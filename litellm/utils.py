@@ -8424,6 +8424,8 @@ class ProviderConfigManager:
             return SagemakerEmbeddingConfig.get_model_config(model)
         elif litellm.LlmProviders.PERPLEXITY == provider:
             return litellm.PerplexityEmbeddingConfig()
+        elif litellm.LlmProviders.EDENAI == provider:
+            return litellm.EdenAIEmbeddingConfig()
         return None
 
     @staticmethod
@@ -8643,6 +8645,8 @@ class ProviderConfigManager:
             )
 
             return GeminiAudioTranscriptionConfig()
+        elif litellm.LlmProviders.EDENAI == provider:
+            return litellm.EdenAIAudioTranscriptionConfig()
         return None
 
     @staticmethod
@@ -9168,6 +9172,8 @@ class ProviderConfigManager:
             )
 
             return get_modelscope_image_generation_config(model)
+        elif LlmProviders.EDENAI == provider:
+            return litellm.EdenAIImageGenerationConfig()
         return None
 
     @staticmethod
@@ -9495,6 +9501,8 @@ class ProviderConfigManager:
             )
 
             return AWSPollyTextToSpeechConfig()
+        elif litellm.LlmProviders.EDENAI == provider:
+            return litellm.EdenAITextToSpeechConfig()
         return None
 
     @staticmethod

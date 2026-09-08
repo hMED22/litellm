@@ -20,7 +20,7 @@ from litellm.types.llms.openai import ResponsesAPIResponse
 from litellm.types.router import GenericLiteLLMParams
 from litellm.types.utils import LlmProviders
 
-from ..common_utils import EdenAIException, require_api_key, resolve_api_base
+from ..common_utils import EdenAIException, authorized_headers, resolve_api_base
 
 if TYPE_CHECKING:
     from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
@@ -37,8 +37,7 @@ class EdenAIResponsesAPIConfig(OpenAIResponsesAPIConfig):
         model: str,
         litellm_params: GenericLiteLLMParams | None,
     ) -> dict[str, object]:  # mutable-ok: inherited contract
-        api_key: Final = require_api_key(litellm_params.api_key if litellm_params else None, model)
-        return {**headers, "Authorization": f"Bearer {api_key}"}  # mutable-ok: inherited contract
+        return authorized_headers(headers, litellm_params.api_key if litellm_params else None, model)
 
     def get_complete_url(
         self,
