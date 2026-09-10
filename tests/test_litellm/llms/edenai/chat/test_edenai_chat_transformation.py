@@ -397,4 +397,5 @@ class TestDashboardRegistration:
             "image_generations",
             "audio_transcriptions",
             "audio_speech",
+            "video_generations",
         }

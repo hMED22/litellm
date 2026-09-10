@@ -330,6 +330,7 @@ LLM_CONFIG_NAMES: Final = (
     "EdenAIAudioTranscriptionConfig",
     "EdenAITextToSpeechConfig",
     "EdenAIImageGenerationConfig",
+    "EdenAIVideoConfig",
     "OVHCloudChatConfig",
     "OVHCloudEmbeddingConfig",
     "CometAPIEmbeddingConfig",
@@ -1229,6 +1230,7 @@ _LLM_CONFIGS_IMPORT_MAP: Final = {
     ),
     "EdenAITextToSpeechConfig": (".llms.edenai.text_to_speech.transformation", "EdenAITextToSpeechConfig"),
     "EdenAIImageGenerationConfig": (".llms.edenai.image_generation.transformation", "EdenAIImageGenerationConfig"),
+    "EdenAIVideoConfig": (".llms.edenai.videos.transformation", "EdenAIVideoConfig"),
     "OVHCloudChatConfig": (".llms.ovhcloud.chat.transformation", "OVHCloudChatConfig"),
     "OVHCloudEmbeddingConfig": (
         ".llms.ovhcloud.embedding.transformation",

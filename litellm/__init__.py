@@ -2094,6 +2094,9 @@ if TYPE_CHECKING:
     from .llms.edenai.image_generation.transformation import (
         EdenAIImageGenerationConfig as EdenAIImageGenerationConfig,
     )
+    from .llms.edenai.videos.transformation import (
+        EdenAIVideoConfig as EdenAIVideoConfig,
+    )
     from .llms.ovhcloud.chat.transformation import (
         OVHCloudChatConfig as OVHCloudChatConfig,
     )

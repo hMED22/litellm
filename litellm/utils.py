@@ -9205,6 +9205,8 @@ class ProviderConfigManager:
             from litellm.llms.hosted_vllm.videos import get_hosted_vllm_video_config
 
             return get_hosted_vllm_video_config(model)
+        elif LlmProviders.EDENAI == provider:
+            return litellm.EdenAIVideoConfig()
         return None
 
     @staticmethod

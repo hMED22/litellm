@@ -828,7 +828,8 @@
         "moderations": false,
         "batches": false,
         "rerank": false,
-        "interactions": false
+        "interactions": false,
+        "video_generations": true
       }
     },
     "duckduckgo": {
