@@ -967,7 +967,7 @@ class LiteLLM_Proxy_MCP_Handler:
 
     @staticmethod
     def _create_follow_up_messages_for_chat(
-        original_messages: list[object],
+        original_messages: Sequence[object],
         response: ModelResponse,
         tool_results: Sequence[Mapping[str, object]],
     ) -> Sequence[Mapping[str, object]]:

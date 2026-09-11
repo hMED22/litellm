@@ -1,6 +1,7 @@
 """Helpers for handling MCP-aware `/chat/completions` requests."""
 
 import logging
+from collections.abc import Sequence
 from typing import TYPE_CHECKING, Final, cast
 
 from typing_extensions import TypedDict, Unpack
@@ -16,6 +17,9 @@ if TYPE_CHECKING:
     from litellm.proxy._types import UserAPIKeyAuth
 
 
+_MAX_TOOL_CALL_ROUNDS: Final = 5
+
+
 class _MCPCompletionKwargs(TypedDict, total=False, extra_items=object):
     """Extra keywords forwarded verbatim to ``litellm.acompletion``, which owns their contract."""
 
@@ -23,8 +27,8 @@ class _MCPCompletionKwargs(TypedDict, total=False, extra_items=object):
 def _add_mcp_metadata_to_response(
     response: ModelResponse | CustomStreamWrapper,
     openai_tools: list | None,
-    tool_calls: list | None = None,
-    tool_results: list | None = None,
+    tool_calls: Sequence[object] | None = None,
+    tool_results: Sequence[object] | None = None,
 ) -> None:
     """
     Add MCP metadata to response's provider_specific_fields.
@@ -592,56 +596,51 @@ async def acompletion_with_mcp(
     if not isinstance(initial_response, ModelResponse):
         return initial_response
 
-    # Extract tool calls from response
-    tool_calls: Final = LiteLLM_Proxy_MCP_Handler._extract_tool_calls_from_chat_response(response=initial_response)
+    executed_tool_calls: tuple[object, ...] = ()  # rebind-ok: collects the calls of every round for the metadata
+    executed_tool_results: tuple[object, ...] = ()  # rebind-ok: collects the results of every round for the metadata
+    conversation: Sequence[object] = messages  # rebind-ok: each round appends the assistant turn and its tool results
+    response: ModelResponse | CustomStreamWrapper = initial_response  # rebind-ok: holds the model's latest turn
 
-    if not tool_calls:
-        _add_mcp_metadata_to_response(
-            response=initial_response,
-            openai_tools=openai_tools,
-        )
-        return initial_response
+    for _ in range(_MAX_TOOL_CALL_ROUNDS):
+        if not isinstance(response, ModelResponse):
+            break
 
-    # Execute tool calls
-    tool_results: Final = await LiteLLM_Proxy_MCP_Handler._execute_tool_calls(
-        tool_server_map=tool_server_map,
-        tool_calls=tool_calls,
-        user_api_key_auth=user_api_key_auth,
-        mcp_auth_header=mcp_auth_header,
-        mcp_server_auth_headers=mcp_server_auth_headers,
-        oauth2_headers=oauth2_headers,
-        raw_headers=raw_headers,
-        litellm_call_id=context.litellm_call_id,
-        litellm_trace_id=context.litellm_trace_id,
-        request_tags=request_tags,
-    )
+        tool_calls = LiteLLM_Proxy_MCP_Handler._extract_tool_calls_from_chat_response(response=response)
+        if not tool_calls:
+            break
+        executed_tool_calls += tuple(tool_calls)
 
-    if not tool_results:
-        _add_mcp_metadata_to_response(
-            response=initial_response,
-            openai_tools=openai_tools,
+        tool_results = await LiteLLM_Proxy_MCP_Handler._execute_tool_calls(
+            tool_server_map=tool_server_map,
             tool_calls=tool_calls,
+            user_api_key_auth=user_api_key_auth,
+            mcp_auth_header=mcp_auth_header,
+            mcp_server_auth_headers=mcp_server_auth_headers,
+            oauth2_headers=oauth2_headers,
+            raw_headers=raw_headers,
+            litellm_call_id=context.litellm_call_id,
+            litellm_trace_id=context.litellm_trace_id,
+            request_tags=request_tags,
         )
-        return initial_response
+        if not tool_results:
+            break
+        executed_tool_results += tuple(tool_results)
 
-    # Create follow-up messages with tool results
-    follow_up_messages: Final = LiteLLM_Proxy_MCP_Handler._create_follow_up_messages_for_chat(
-        original_messages=messages,
-        response=initial_response,
-        tool_results=tool_results,
-    )
+        conversation = LiteLLM_Proxy_MCP_Handler._create_follow_up_messages_for_chat(
+            original_messages=conversation,
+            response=response,
+            tool_results=tool_results,
+        )
+        follow_up_call_args = dict(base_call_args)
+        follow_up_call_args["messages"] = conversation
+        follow_up_call_args["stream"] = stream
+        response = await litellm_acompletion(**follow_up_call_args)
 
-    # Make follow-up call with original stream setting
-    follow_up_call_args: Final = dict(base_call_args)
-    follow_up_call_args["messages"] = follow_up_messages
-    follow_up_call_args["stream"] = stream
-
-    response = await litellm_acompletion(**follow_up_call_args)
     if isinstance(response, (ModelResponse, CustomStreamWrapper)):
         _add_mcp_metadata_to_response(
             response=response,
             openai_tools=openai_tools,
-            tool_calls=tool_calls,
-            tool_results=tool_results,
+            tool_calls=executed_tool_calls,
+            tool_results=executed_tool_results,
         )
     return response

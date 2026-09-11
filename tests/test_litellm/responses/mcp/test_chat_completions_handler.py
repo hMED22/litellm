@@ -1387,3 +1387,146 @@ async def test_acompletion_with_mcp_forwards_unserved_external_mcp_tool_to_the_p
     assert isinstance(result, ModelResponse)
     assert result.id == "chatcmpl-zapier"
     assert json.loads(provider.calls.last.request.content)["tools"] == [zapier_tool]
+
+
+_PROVIDER_URL = "https://api.openai.com/v1/chat/completions"
+_SEARCH_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "search",
+        "description": "search the web",
+        "parameters": {"type": "object", "properties": {}},
+    },
+}
+
+
+def _tool_call_payload(call_id: str, tool_name: str) -> dict:
+    return {
+        "id": call_id,
+        "object": "chat.completion",
+        "created": 0,
+        "model": "gpt-4.1",
+        "choices": [
+            {
+                "index": 0,
+                "message": {
+                    "role": "assistant",
+                    "content": None,
+                    "tool_calls": [
+                        {"id": call_id, "type": "function", "function": {"name": tool_name, "arguments": "{}"}}
+                    ],
+                },
+                "finish_reason": "tool_calls",
+            }
+        ],
+        "usage": {"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2},
+    }
+
+
+def _text_payload(content: str) -> dict:
+    return {
+        "id": "final",
+        "object": "chat.completion",
+        "created": 0,
+        "model": "gpt-4.1",
+        "choices": [{"index": 0, "message": {"role": "assistant", "content": content}, "finish_reason": "stop"}],
+        "usage": {"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2},
+    }
+
+
+def _patch_mcp_gateway(monkeypatch, tools):
+    async def mock_process(**_):
+        return ([_SEARCH_TOOL], {"search": "server"})
+
+    monkeypatch.setattr(
+        LiteLLM_Proxy_MCP_Handler,
+        "_should_use_litellm_mcp_gateway",
+        staticmethod(lambda tools: True),
+    )
+    monkeypatch.setattr(LiteLLM_Proxy_MCP_Handler, "_parse_mcp_tools", staticmethod(lambda t: (t, [])))
+    monkeypatch.setattr(LiteLLM_Proxy_MCP_Handler, "_process_mcp_tools_without_openai_transform", mock_process)
+    monkeypatch.setattr(
+        LiteLLM_Proxy_MCP_Handler,
+        "_transform_mcp_tools_to_openai",
+        staticmethod(lambda *_, **__: [_SEARCH_TOOL]),
+    )
+    monkeypatch.setattr(LiteLLM_Proxy_MCP_Handler, "_should_auto_execute_tools", staticmethod(lambda **_: True))
+    monkeypatch.setattr(
+        ResponsesAPIRequestUtils,
+        "extract_mcp_headers_from_request",
+        staticmethod(lambda **_: (None, None, None, None)),
+    )
+    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_acompletion_with_mcp_auto_exec_runs_every_round_the_model_asks_for(monkeypatch):
+    """A model that searches twice before answering gets both tool calls executed, not just the first."""
+    tools = [{"type": "mcp", "server_url": "litellm_proxy", "require_approval": "never"}]
+    _patch_mcp_gateway(monkeypatch, tools)
+    provider = respx.post(_PROVIDER_URL).mock(
+        side_effect=[
+            Response(200, json=_tool_call_payload("call-1", "search")),
+            Response(200, json=_tool_call_payload("call-2", "search")),
+            Response(200, json=_text_payload("Python 3.14.6")),
+        ]
+    )
+
+    executed = []
+
+    async def mock_execute(**kwargs):
+        call = kwargs["tool_calls"][0]
+        executed.append(call["id"])
+        return [{"tool_call_id": call["id"], "name": "search", "result": f"result for {call['id']}"}]
+
+    monkeypatch.setattr(LiteLLM_Proxy_MCP_Handler, "_execute_tool_calls", mock_execute)
+
+    result = await acompletion_with_mcp(
+        model="openai/gpt-4.1",
+        messages=[{"role": "user", "content": "latest python?"}],
+        tools=tools,
+        api_key="sk-test",
+        acompletion=True,
+    )
+
+    assert executed == ["call-1", "call-2"]
+    assert provider.call_count == 3
+    assert result.choices[0].message.content == "Python 3.14.6"
+
+    final_messages = json.loads(provider.calls.last.request.content)["messages"]
+    tool_messages = [m for m in final_messages if m.get("role") == "tool"]
+    assert [m["content"] for m in tool_messages] == ["result for call-1", "result for call-2"]
+
+    mcp_fields = result.choices[0].message.provider_specific_fields
+    assert [c["id"] for c in mcp_fields["mcp_tool_calls"]] == ["call-1", "call-2"]
+    assert len(mcp_fields["mcp_call_results"]) == 2
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_acompletion_with_mcp_auto_exec_stops_at_the_round_cap(monkeypatch):
+    """A model that never stops asking for tools is cut off instead of looping forever."""
+    from litellm.responses.mcp.chat_completions_handler import _MAX_TOOL_CALL_ROUNDS
+
+    tools = [{"type": "mcp", "server_url": "litellm_proxy", "require_approval": "never"}]
+    _patch_mcp_gateway(monkeypatch, tools)
+    provider = respx.post(_PROVIDER_URL).mock(
+        side_effect=lambda request: Response(200, json=_tool_call_payload("call-n", "search"))
+    )
+
+    async def mock_execute(**kwargs):
+        return [{"tool_call_id": kwargs["tool_calls"][0]["id"], "name": "search", "result": "more"}]
+
+    monkeypatch.setattr(LiteLLM_Proxy_MCP_Handler, "_execute_tool_calls", mock_execute)
+
+    result = await acompletion_with_mcp(
+        model="openai/gpt-4.1",
+        messages=[{"role": "user", "content": "loop forever"}],
+        tools=tools,
+        api_key="sk-test",
+        acompletion=True,
+    )
+
+    assert provider.call_count == _MAX_TOOL_CALL_ROUNDS + 1
+    assert result.choices[0].finish_reason == "tool_calls"
